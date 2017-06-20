@@ -3,11 +3,13 @@ package com.mycompany.imagej;
 import net.imagej.ImageJ;
 import net.imagej.ImgPlus;
 import net.imglib2.Cursor;
+import net.imglib2.IterableInterval;
 import net.imglib2.RandomAccess;
 import net.imglib2.img.Img;
 import net.imglib2.img.array.ArrayImgs;
 import net.imglib2.type.logic.BitType;
 import net.imglib2.type.numeric.RealType;
+import net.imglib2.view.Views;
 import org.scijava.ItemIO;
 import org.scijava.command.Command;
 import org.scijava.plugin.Parameter;
@@ -41,12 +43,11 @@ public class FixedThresholder<T extends RealType<T>> implements Command {
         bw = ArrayImgs.bits(dim);
 
 
-//        threshold1(img, bw);
-        threshold2(img, bw);
+        threshold1(img, bw);
+//        threshold2(img, bw);
     }
 
     private void threshold1(Img<T> img, Img<BitType> bw) {
-        // Sum up all the pixels
         Cursor<T> cur = img.cursor();
         RandomAccess<BitType> ra = bw.randomAccess();
 
@@ -63,9 +64,13 @@ public class FixedThresholder<T extends RealType<T>> implements Command {
 
     // According to the suggestions of Stefan
     private void threshold2(Img<T> img, Img<BitType> bw) {
-        // Sum up all the pixels
-        Cursor<T> cur1 = img.cursor();
-        Cursor<BitType> cur2 = bw.cursor();
+        // make sure the cursors iterate over the pixels in the same order
+        IterableInterval<T> iter1 = Views.flatIterable(img);
+        IterableInterval<BitType> iter2 = Views.flatIterable(bw);
+
+        // get the cursors
+        Cursor<T> cur1 = iter1.cursor();
+        Cursor<BitType> cur2 = iter2.cursor();
 
         // Put the threshold value according to the input pixel type
         T thresholdT = img.firstElement().copy();
