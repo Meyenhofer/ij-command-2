@@ -24,6 +24,7 @@ public class FixedThresholder<T extends RealType<T>> implements Command {
     @Parameter(type = ItemIO.INPUT, label="input image")
     ImgPlus<T> img;
 
+    //lskdf
     @Parameter
     Float threshold;
 
