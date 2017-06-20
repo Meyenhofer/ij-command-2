@@ -57,7 +57,7 @@ public class FixedThresholder<T extends RealType<T>> implements Command {
             T gcv = cur.get();
             ra.setPosition(cur);
 
-            boolean bwv = gcv.getRealFloat() > threshold;
+            boolean bwv = gcv.getRealFloat() > 50;
             ra.get().set(new BitType(bwv));
         }
     }
