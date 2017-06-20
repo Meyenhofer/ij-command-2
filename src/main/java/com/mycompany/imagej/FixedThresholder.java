@@ -1,73 +1,90 @@
 package com.mycompany.imagej;
 
-import ij.IJ;
-import ij.ImagePlus;
-import net.imagej.Dataset;
-import net.imagej.DefaultDataset;
 import net.imagej.ImageJ;
 import net.imagej.ImgPlus;
-import net.imagej.table.DefaultFloatTable;
-import net.imagej.table.Table;
 import net.imglib2.Cursor;
+import net.imglib2.RandomAccess;
 import net.imglib2.img.Img;
+import net.imglib2.img.array.ArrayImgs;
+import net.imglib2.type.logic.BitType;
 import net.imglib2.type.numeric.RealType;
 import org.scijava.ItemIO;
 import org.scijava.command.Command;
 import org.scijava.plugin.Parameter;
 import org.scijava.plugin.Plugin;
 
+import java.io.IOException;
+
 
 @Plugin(type = Command.class, menuPath = "Plugins > Fixed Threshold")
-public class FixedThresholdeer<T extends RealType<T>> implements Command {
+public class FixedThresholder<T extends RealType<T>> implements Command {
 
-    @Parameter(type = ItemIO.INPUT, persistKey = "asdf")
-    Img<T> img;
+    @Parameter(type = ItemIO.INPUT, label="input image")
+    ImgPlus<T> img;
 
-    @Parameter(type = ItemIO.OUTPUT)
-    Table res;
+    @Parameter
+    Float threshold;
+
+    @Parameter(type = ItemIO.OUTPUT, label = "thresholded image")
+    Img<BitType> bw;
 
 
     @Override
     public void run() {
-        // Get the number of pixels
-        Long numPix = 1l;
+        // Get the image dimensions
+        long[] dim = new long[img.numDimensions()];
         for (int d= 0; d < img.numDimensions(); d ++) {
-            numPix *= img.dimension(d);
+            dim[d] = img.dimension(d);
         }
 
+        // Create an image to hold the thresholded pixels
+        bw = ArrayImgs.bits(dim);
+
+
+//        threshold1(img, bw);
+        threshold2(img, bw);
+    }
+
+    private void threshold1(Img<T> img, Img<BitType> bw) {
         // Sum up all the pixels
         Cursor<T> cur = img.cursor();
-        T sum = img.firstElement().copy();
-        cur.next();
+        RandomAccess<BitType> ra = bw.randomAccess();
+
+        // Iterate over the pixels and compare them to the threshold
         while (cur.hasNext()) {
             cur.next();
-            sum.add(cur.get());
+            T gcv = cur.get();
+            ra.setPosition(cur);
+
+            boolean bwv = gcv.getRealFloat() > threshold;
+            ra.get().set(new BitType(bwv));
         }
+    }
 
-        // Compute the mean pixel value and display it in a table
-        Float mean = sum.getRealFloat() / numPix.floatValue();
-        res = new DefaultFloatTable(1,1);
-        res.setColumnHeader(0, "Image Mean Pixel Value");
-        res.set(0, 0, mean);
-    }                                                            
+    // According to the suggestions of Stefan
+    private void threshold2(Img<T> img, Img<BitType> bw) {
+        // Sum up all the pixels
+        Cursor<T> cur1 = img.cursor();
+        Cursor<BitType> cur2 = bw.cursor();
 
+        // Put the threshold value according to the input pixel type
+        T thresholdT = img.firstElement().copy();
+        thresholdT.setReal(threshold);
 
-    public static void main(String[] args) {
+        // Iterate over the pixels and compare them to the threshold
+        while (cur1.hasNext()) {
+            cur1.fwd();
+            cur2.fwd();
+
+            boolean bwv = cur1.get().compareTo(thresholdT) > -1;
+            cur2.get().set(new BitType(bwv));
+        }
+    }
+
+    public static void main(String[] args) throws IOException {
         final ImageJ ij = net.imagej.Main.launch(args);
-//        ij.launch(args);
-        Img image = ij.op().create().img(new Long[]{100l, 80l});
-        ij.op().image().equation(image, "p[0]+p[1]");
-
-        //problem is that 'image' is a raw imglib2 type, not an ij2 dataset. so it gets auto-wrapped, but with a null name.
-        // we should also fix things so that when autowrapping happens, name is not null? not sure...
-        ImgPlus imgPlus = new ImgPlus((Img) image);
-        imgPlus.setName("my awesome image");
-        Dataset dataset = new DefaultDataset(ij.context(), imgPlus);
-
-
-        final ImagePlus imp = IJ.openImage( SandboxIJ1.class.getResource( "/clown.png" ).getFile() );
-
-        ij.ui().show(dataset);
-        ij.command().run(FixedThresholdeer.class, true);
+        Object img = ij.io().open(FixedThresholder.class.getResource("/blobs.tif").getFile());
+        ij.ui().show(img);
+        ij.command().run(FixedThresholder.class, true);
     }
 }
